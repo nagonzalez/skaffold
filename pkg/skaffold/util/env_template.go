@@ -30,9 +30,38 @@ import (
 
 var OSEnviron = os.Environ
 
+// recovery will silently swallow all unexpected panics.
+func recovery() {
+	recover()
+}
+
+var SkaffoldFuncMap = template.FuncMap{
+	"default": func(arg string, value interface{}) interface{} {
+		defer recovery()
+
+		v := reflect.ValueOf(value)
+		if v.Kind() != reflect.String {
+			return arg
+		}
+
+		if len(value.(string)) == 0 {
+			return arg
+		}
+
+		return value
+	},
+	"required": func(value interface{}) (interface{}, error) {
+		defer recovery()
+		if value == nil {
+			return nil, errors.New("missing required value")
+		}
+		return value, nil
+	},
+}
+
 // ParseEnvTemplate is a simple wrapper to parse an env template
 func ParseEnvTemplate(t string) (*template.Template, error) {
-	tmpl, err := template.New("envTemplate").Parse(t)
+	tmpl, err := template.New("envTemplate").Funcs(SkaffoldFuncMap).Parse(t)
 	return tmpl, err
 }
 
